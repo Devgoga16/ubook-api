@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Archivos subidos en desarrollo (sin R2)
+.uploads/
+.uploads-test/
+
+# Caché de compilación de TypeScript
+*.tsbuildinfo

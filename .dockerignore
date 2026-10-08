@@ -1,0 +1,17 @@
+# Solo entra lo necesario para compilar: package.json, lockfile, tsconfig y src.
+node_modules
+dist
+coverage
+test
+scripts
+*.log
+.env
+.env.*
+!.env.example
+.uploads
+.uploads-test
+# Con este archivo, tsc puede creer que no hay cambios y dejar dist vacío.
+*.tsbuildinfo
+Dockerfile
+.dockerignore
+README.md
