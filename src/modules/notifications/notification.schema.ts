@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { SchemaTypes, type HydratedDocument, type Types } from 'mongoose';
 import { tenantPlugin } from '../../core/database/tenant.plugin.js';
 
-export const NOTIFICATION_TYPES = ['booking_created', 'booking_pending', 'deposit_submitted', 'booking_cancelled', 'booking_rescheduled', 'waitlist_joined'] as const;
+export const NOTIFICATION_TYPES = ['booking_created', 'booking_pending', 'deposit_submitted', 'booking_cancelled', 'booking_rescheduled', 'waitlist_joined', 'client_inquiry'] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** Se borran solas a los 60 días. */

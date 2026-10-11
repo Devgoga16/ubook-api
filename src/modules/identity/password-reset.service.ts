@@ -46,6 +46,18 @@ export class PasswordResetService {
     if (!sent) this.logger.error(`No se pudo enviar el enlace de contraseña a ${user.email}`);
   }
 
+  /**
+   * Enlace para que alguien cree su contraseña (invitación al equipo de plataforma).
+   * Usa la misma página que "olvidé mi contraseña"; invalida los enlaces anteriores.
+   */
+  async issueLink(userId: string, ttlMs: number): Promise<{ url: string; expiresAt: Date }> {
+    await this.resets.updateMany({ userId, usedAt: null }, { usedAt: new Date() }).exec();
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await this.resets.create({ userId, tokenHash: hashToken(token), expiresAt });
+    return { url: this.mail.appUrl(`/restablecer/${token}`), expiresAt };
+  }
+
   /** Para la página del enlace: si sigue vigente y de quién es (sin revelar más). */
   async preview(token: string): Promise<{ email: string }> {
     const reset = await this.findValid(token);

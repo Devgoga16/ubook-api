@@ -16,6 +16,7 @@ import { Professional } from '../professionals/schemas/professional.schema.js';
 import { AppointmentsService } from './appointments.service.js';
 import { AvailabilityService, type AvailabilityResult } from './availability.service.js';
 import { BookingLinksService } from './booking-links.service.js';
+import { ClientPortalService } from './client-portal.service.js';
 import type { PublicBookingDto, PublicDaysQuery, PublicSlotsQuery } from './dto/public-booking.dto.js';
 import type { PublicWaitlistDto } from './dto/waitlist.dto.js';
 import { WaitlistService } from './waitlist.service.js';
@@ -45,6 +46,7 @@ export class PublicBookingService {
     private readonly promotions: PromotionsService,
     private readonly storage: StorageService,
     private readonly notifications: NotificationsService,
+    private readonly portal: ClientPortalService,
   ) {}
 
   /* ---------- Página del negocio ---------- */
@@ -76,11 +78,14 @@ export class PublicBookingService {
       const usedCategories = new Set(visible.map((s) => s.categoryId?.toString()).filter(Boolean));
       const rules = org.toObject().bookingRules;
       const logoUrl = await this.logoUrl(org);
+      const ent = await this.entitlements.get(org.id as string);
 
       return {
         name: org.name,
         slug: org.slug,
         logoUrl,
+        /** El plan incluye portal del cliente ("Mis citas"). */
+        portal: ent.features.client_portal === true,
         businessType: org.businessType ?? null,
         rules: {
           minNoticeMinutes: rules.minNoticeMinutes,
@@ -138,7 +143,7 @@ export class PublicBookingService {
 
   /* ---------- Reservar ---------- */
 
-  book(slug: string, dto: PublicBookingDto) {
+  book(slug: string, dto: PublicBookingDto, portalToken?: string) {
     return this.open(slug, async (org) => {
       await this.assertOnlineService(dto.serviceId);
       await this.assertMonthlyLimit(org);
@@ -150,7 +155,8 @@ export class PublicBookingService {
       }
 
       const professionalId = dto.professionalId ?? (await this.pickProfessional(dto));
-      const client = await this.resolveClient(dto);
+      // Con sesión en el portal se reserva para una persona ya conocida (titular o beneficiario).
+      const client = dto.forClientId ? await this.portal.bookingClient(org.id as string, portalToken, dto.forClientId) : await this.resolveClient(dto);
       const rules = org.toObject().bookingRules;
 
       if (rules.maxActiveBookingsPerClient != null) {
@@ -380,6 +386,7 @@ export class PublicBookingService {
    * persona (p. ej. la mamá), se registra un cliente nuevo con ese número.
    */
   private async resolveClient(dto: PublicBookingDto): Promise<ClientDocument> {
+    if (!dto.client) throw Errors.badRequest('CLIENT_REQUIRED', 'Faltan tus datos para reservar');
     const phone = normalizePhone(dto.client.phone)!;
     const firstName = normalizeSearch(dto.client.firstName).split(' ')[0];
     const sameNumber = await this.clients.find({ phone }).exec();

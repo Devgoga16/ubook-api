@@ -142,7 +142,7 @@ export class AuthService {
 
     const base = {
       user,
-      context: { ctx: actor.ctx, organizationId: actor.organizationId ?? null },
+      context: { ctx: actor.ctx, organizationId: actor.organizationId ?? null, supportView: !!actor.supportView },
       organizations,
     };
     if (actor.ctx !== 'staff' || !actor.organizationId) return base;

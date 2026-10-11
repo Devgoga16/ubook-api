@@ -11,6 +11,8 @@ export interface Actor {
   organizationId?: string;
   membershipId?: string;
   platformRole?: PlatformRole | null;
+  /** Agente de Unify Tec viendo el negocio en solo lectura (sin membresía). */
+  supportView?: boolean;
 }
 
 const ORG_KEY = 'tenant.organizationId';

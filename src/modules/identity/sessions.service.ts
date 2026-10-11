@@ -15,7 +15,12 @@ export interface AccessTokenPayload {
   ctx: AuthContextType;
   org?: string;
   mid?: string;
+  /** Vista de soporte: agente de plataforma dentro de un negocio, solo lectura. */
+  sup?: true;
 }
+
+/** La vista de soporte no se renueva: al vencer, el agente vuelve a su panel. */
+export const SUPPORT_VIEW_TTL_SECONDS = 30 * 60;
 
 export interface SessionContext {
   ctx: AuthContextType;
@@ -90,6 +95,16 @@ export class SessionsService {
 
   async revokeAllForUser(userId: string): Promise<void> {
     await this.sessions.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() }).exec();
+  }
+
+  /**
+   * Access token para que un agente de plataforma vea un negocio en solo lectura.
+   * No crea sesión ni refresh token: la sesión de plataforma sigue siendo la del agente.
+   */
+  async issueSupportView(userId: string, sessionId: string, organizationId: string) {
+    const payload: AccessTokenPayload = { sub: userId, sid: sessionId, ctx: 'staff', org: organizationId, sup: true };
+    const accessToken = await this.jwt.signAsync(payload, { expiresIn: SUPPORT_VIEW_TTL_SECONDS });
+    return { accessToken, expiresIn: SUPPORT_VIEW_TTL_SECONDS, context: { ctx: 'staff' as const, organizationId, supportView: true } };
   }
 
   private contextOf(session: SessionDocument): SessionContext {

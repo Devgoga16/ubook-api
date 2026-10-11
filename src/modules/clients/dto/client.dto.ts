@@ -96,6 +96,45 @@ export class CreateClientDto {
 
 export class UpdateClientDto extends PartialType(CreateClientDto) {}
 
+/** Beneficiario: un cliente existente (`clientId`) o los datos de uno nuevo. */
+export class AddDependentDto {
+  @IsOptional()
+  @IsMongoId()
+  clientId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  lastName?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  documentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  relationship?: string;
+}
+
+export class UpdateGuardianLinkDto {
+  @IsString()
+  @MaxLength(30)
+  relationship: string;
+}
+
 export const CLIENT_SEGMENTS = ['all', 'new', 'upcoming', 'at_risk', 'vip'] as const;
 export type ClientSegment = (typeof CLIENT_SEGMENTS)[number];
 

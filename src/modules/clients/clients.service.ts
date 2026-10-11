@@ -8,7 +8,7 @@ import { AppError, Errors } from '../../core/common/errors.js';
 import { TenantContext } from '../../core/tenancy/tenant-context.js';
 import { Appointment } from '../bookings/schemas/appointment.schema.js';
 import { Professional } from '../professionals/schemas/professional.schema.js';
-import type { ClientSegment, CreateClientDto, UpdateClientDto } from './dto/client.dto.js';
+import type { AddDependentDto, ClientSegment, CreateClientDto, UpdateClientDto } from './dto/client.dto.js';
 import { Client, normalizeSearch, type ClientDocument } from './schemas/client.schema.js';
 
 /** "987 654 321" / "+51987654321" → "+51987654321". */
@@ -37,6 +37,10 @@ export interface ClientStats {
   noShows: number;
   lastVisit: Date | null;
   nextAppointment: Date | null;
+}
+
+function familyView(c: ClientDocument) {
+  return { id: c.id as string, firstName: c.firstName, lastName: c.lastName ?? '', phone: c.phone ?? null, email: c.email ?? null, birthDate: c.birthDate ?? null };
 }
 
 function escapeRegex(text: string): string {
@@ -144,6 +148,69 @@ export class ClientsService {
     return client;
   }
 
+  /* ---------- Responsables y beneficiarios ---------- */
+
+  /** Quién responde por este cliente y a quiénes tiene a su cargo. */
+  async family(id: string) {
+    const client = await this.get(id);
+    const [guardian, dependents] = await Promise.all([
+      client.guardianId ? this.clients.findById(client.guardianId).exec() : null,
+      this.clients.find({ guardianId: client._id }).sort({ createdAt: 1 }).exec(),
+    ]);
+    return {
+      guardian: guardian ? { ...familyView(guardian), relationship: client.relationship } : null,
+      dependents: dependents.map((d) => ({ ...familyView(d), relationship: d.relationship })),
+    };
+  }
+
+  /**
+   * Pone a una persona a cargo de `guardianId`: un cliente que ya existe
+   * (`clientId`) o uno nuevo. El responsable no puede ser a su vez beneficiario,
+   * ni un beneficiario tener gente a cargo: la relación es de un solo nivel.
+   */
+  async addDependent(guardianId: string, dto: AddDependentDto) {
+    const guardian = await this.clients.findOne({ _id: guardianId, ...(await this.scopeFilter('client.update')) }).exec();
+    if (!guardian) throw Errors.notFound('Cliente');
+    if (guardian.guardianId) throw Errors.badRequest('GUARDIAN_IS_DEPENDENT', `${guardian.firstName} ya está a cargo de otra persona: no puede ser responsable`);
+
+    if (dto.clientId) {
+      if (dto.clientId === guardianId) throw Errors.badRequest('SAME_CLIENT', 'Una persona no puede ser su propio responsable');
+      const dependent = await this.clients.findById(dto.clientId).exec();
+      if (!dependent) throw Errors.notFound('Cliente');
+      if (dependent.guardianId && !dependent.guardianId.equals(guardian._id)) {
+        throw Errors.conflict('ALREADY_HAS_GUARDIAN', `${dependent.firstName} ya tiene otro responsable. Quita ese vínculo primero.`);
+      }
+      if (await this.clients.exists({ guardianId: dependent._id })) {
+        throw Errors.badRequest('DEPENDENT_IS_GUARDIAN', `${dependent.firstName} ya es responsable de otras personas`);
+      }
+      dependent.set({ guardianId: guardian._id, relationship: dto.relationship ?? dependent.relationship });
+      await dependent.save();
+    } else {
+      if (!dto.firstName) throw Errors.badRequest('NAME_REQUIRED', 'Escribe el nombre del beneficiario');
+      const doc = this.toDoc({ firstName: dto.firstName, lastName: dto.lastName, birthDate: dto.birthDate, documentId: dto.documentId });
+      await this.assertUnique(doc);
+      try {
+        await this.clients.create({ ...doc, guardianId: guardian._id, relationship: dto.relationship ?? '', source: guardian.source, dataConsentAt: guardian.dataConsentAt });
+      } catch (error) {
+        throw await this.duplicateError(error, doc);
+      }
+    }
+    await this.audit.log({ action: 'client.dependent_added', entityType: 'Client', entityId: guardianId, metadata: { clientId: dto.clientId ?? null } });
+    return this.family(guardianId);
+  }
+
+  /** Cambia el parentesco o quita el vínculo de un beneficiario con su responsable. */
+  async updateGuardianLink(id: string, change: { relationship?: string; unlink?: boolean }) {
+    const client = await this.clients.findOne({ _id: id, ...(await this.scopeFilter('client.update')) }).exec();
+    if (!client) throw Errors.notFound('Cliente');
+    if (!client.guardianId) throw Errors.badRequest('NO_GUARDIAN', 'Esta persona no tiene un responsable');
+    if (change.unlink) client.set({ guardianId: null, relationship: '' });
+    else if (change.relationship !== undefined) client.relationship = change.relationship;
+    await client.save();
+    await this.audit.log({ action: change.unlink ? 'client.dependent_removed' : 'client.dependent_updated', entityType: 'Client', entityId: id });
+    return this.family(id);
+  }
+
   /* ---------- Internos ---------- */
 
   /**
@@ -176,7 +243,7 @@ export class ClientsService {
       : Errors.conflict('CLIENT_DOCUMENT_TAKEN', 'Ese documento ya está registrado');
   }
 
-  private toDoc(dto: CreateClientDto | UpdateClientDto): Record<string, unknown> {
+  private toDoc(dto: Partial<CreateClientDto>): Record<string, unknown> {
     const { dataConsent, phone, documentId, allowSharedPhone: _confirm, ...rest } = dto;
     return {
       ...rest,

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MAX_IMAGE_BYTES } from '../../core/storage/storage.service.js';
 import { Throttle } from '@nestjs/throttler';
@@ -14,6 +14,7 @@ import {
   RescheduleBookingDto,
 } from './dto/public-booking.dto.js';
 import { PublicWaitlistDto } from './dto/waitlist.dto.js';
+import { PORTAL_TOKEN_HEADER } from './client-portal.controller.js';
 import { PublicBookingService } from './public-booking.service.js';
 
 const STRICT = { default: { limit: 10, ttl: 60_000 } };
@@ -53,8 +54,8 @@ export class PublicBookingController {
 
   @Throttle(STRICT)
   @Post('businesses/:slug/bookings')
-  book(@Param('slug') slug: string, @Body() dto: PublicBookingDto) {
-    return this.booking.book(slug, dto);
+  book(@Param('slug') slug: string, @Body() dto: PublicBookingDto, @Headers(PORTAL_TOKEN_HEADER) portalToken?: string) {
+    return this.booking.book(slug, dto, portalToken);
   }
 
   @Throttle(STRICT)

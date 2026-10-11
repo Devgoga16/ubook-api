@@ -219,3 +219,51 @@ export function messageEmail(d: { to: string; subject: string; organizationName:
     text: [d.text, '', d.organizationName].join('\n'),
   };
 }
+
+/* ---------- Soporte ---------- */
+
+const ROLE_LABEL = { super_admin: 'Super admin', support: 'Soporte' } as const;
+
+/** Invitación al equipo de plataforma (Unify Tec): la persona crea su contraseña con el enlace. */
+export function platformInviteEmail(opts: { to: string; firstName: string; inviterName: string; role: 'super_admin' | 'support'; url: string; expiresAt: Date }): MailMessage {
+  const until = new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'long', timeZone: 'America/Lima' }).format(opts.expiresAt);
+  const role = ROLE_LABEL[opts.role];
+  const footer = `El enlace vence el ${until} y sirve una sola vez. Si no esperabas este correo, puedes ignorarlo.`;
+  return {
+    to: opts.to,
+    subject: `${opts.inviterName} te sumó al equipo de uBook`,
+    html: layout({
+      title: `Hola ${opts.firstName}, ya eres parte del equipo de uBook`,
+      paragraphs: [
+        `<b>${escape(opts.inviterName)}</b> te dio acceso al panel de plataforma como <b>${role}</b>.`,
+        'Crea tu contraseña para entrar. Luego inicias sesión con este correo.',
+      ],
+      cta: { label: 'Crear mi contraseña', url: opts.url },
+      footer,
+    }),
+    text: [
+      `Hola ${opts.firstName},`,
+      '',
+      `${opts.inviterName} te dio acceso al panel de plataforma de uBook como ${role}.`,
+      `Crea tu contraseña aquí: ${opts.url}`,
+      '',
+      footer,
+    ].join('\n'),
+  };
+}
+
+/** Aviso de movimiento en un ticket de soporte (al negocio o al equipo de plataforma). */
+export function supportTicketEmail(d: { to: string; firstName: string; number: number; subject: string; headline: string; excerpt: string; url: string; cta: string }): MailMessage {
+  const excerpt = d.excerpt.length > 400 ? `${d.excerpt.slice(0, 400)}…` : d.excerpt;
+  return {
+    to: d.to,
+    subject: `[Ticket #${d.number}] ${d.subject}`,
+    html: layout({
+      title: d.headline,
+      paragraphs: [`Hola ${escape(d.firstName)},`, `<b>Ticket #${d.number}: ${escape(d.subject)}</b>`, escape(excerpt).replace(/\n/g, '<br>')],
+      cta: { label: d.cta, url: d.url },
+      footer: 'Soporte de uBook · Responde desde el enlace; este correo no recibe respuestas.',
+    }),
+    text: [`Hola ${d.firstName},`, '', d.headline, `Ticket #${d.number}: ${d.subject}`, '', excerpt, '', `${d.cta}: ${d.url}`].join('\n'),
+  };
+}

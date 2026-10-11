@@ -149,20 +149,25 @@ export class AutomationsService {
     if (!client) return 0;
     if (MARKETING_FLOWS.includes(flow) && !client.marketingConsent) return 0;
 
+    // Un beneficiario sin celular ni correo propio: los avisos van a su responsable.
+    const guardian = client.guardianId && (!client.phone || !client.email) ? await this.clients.findById(client.guardianId).select('phone email').exec() : null;
+    const email = client.email ?? guardian?.email;
+    const phone = client.phone ?? guardian?.phone;
+
     const features = (await this.entitlements.get(TenantContext.requireOrganizationId())).features;
     const vars = await this.vars(flow, settings, appt, client.firstName);
     const text = this.text(flow, settings, vars);
     let sent = 0;
     for (const channel of opts.channels ?? settings.channels) {
-      if (channel === 'email' && client.email && features.email_notifications === true) {
+      if (channel === 'email' && email && features.email_notifications === true) {
         const cta = this.cta(flow, vars);
-        const ok = await this.mail.send(messageEmail({ to: client.email, subject: SUBJECTS[flow], organizationName: vars.negocio ?? '', text, cta }));
-        await this.record(flow, 'email', client.email, ok ? null : 'No se pudo enviar el correo', { clientId: client.id as string, appointmentId: appt?.id as string | undefined });
+        const ok = await this.mail.send(messageEmail({ to: email, subject: SUBJECTS[flow], organizationName: vars.negocio ?? '', text, cta }));
+        await this.record(flow, 'email', email, ok ? null : 'No se pudo enviar el correo', { clientId: client.id as string, appointmentId: appt?.id as string | undefined });
         if (ok) sent++;
       }
-      if (channel === 'whatsapp' && client.phone && features.whatsapp === true) {
-        const res = await this.whatsapp.send({ to: client.phone, text });
-        await this.record(flow, 'whatsapp', client.phone, res.ok ? null : (res.error ?? 'Error'), { clientId: client.id as string, appointmentId: appt?.id as string | undefined });
+      if (channel === 'whatsapp' && phone && features.whatsapp === true) {
+        const res = await this.whatsapp.send({ to: phone, text });
+        await this.record(flow, 'whatsapp', phone, res.ok ? null : (res.error ?? 'Error'), { clientId: client.id as string, appointmentId: appt?.id as string | undefined });
         if (res.ok) sent++;
       }
     }

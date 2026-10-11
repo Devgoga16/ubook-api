@@ -66,10 +66,23 @@ export class Client {
   @Prop({ type: SchemaTypes.ObjectId, ref: 'User', default: null })
   userId: Types.ObjectId | null;
 
+  /**
+   * Responsable de esta persona (p. ej. la mamá de un niño): gestiona sus citas
+   * desde el portal y recibe sus avisos si el beneficiario no tiene celular ni correo.
+   */
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'Client', default: null, index: true })
+  guardianId: Types.ObjectId | null;
+
+  /** Qué es el beneficiario del responsable: Hijo/a, Padre/Madre, Pareja… */
+  @Prop({ trim: true, default: '' })
+  relationship: string;
+
   /** Texto normalizado para búsqueda (nombre, celular, email). */
   @Prop({ select: false, index: true })
   searchText?: string;
 }
+
+export const RELATIONSHIPS = ['Hijo/a', 'Padre/Madre', 'Pareja', 'Hermano/a', 'Abuelo/a', 'Nieto/a', 'Otro'] as const;
 
 export type ClientDocument = HydratedDocument<Client>;
 export const ClientSchema = SchemaFactory.createForClass(Client);

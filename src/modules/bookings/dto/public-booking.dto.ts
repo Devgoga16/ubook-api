@@ -11,6 +11,7 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -106,9 +107,16 @@ export class PublicBookingDto {
   @IsDate()
   startsAt: Date;
 
+  /** Con sesión en el portal: la persona para quien es la cita (titular o beneficiario). */
+  @IsOptional()
+  @IsMongoId()
+  forClientId?: string;
+
+  /** Datos de quien reserva sin sesión. */
+  @ValidateIf((o: PublicBookingDto) => !o.forClientId)
   @ValidateNested()
   @Type(() => PublicClientDto)
-  client: PublicClientDto;
+  client?: PublicClientDto;
 
   @IsOptional()
   @Transform(trim)

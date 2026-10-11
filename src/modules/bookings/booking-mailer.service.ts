@@ -58,8 +58,11 @@ export class BookingMailerService {
 
       const features = (await this.entitlements.get(organizationId)).features;
       if (features.email_notifications !== true) return whatsapp;
-      const client = await this.clients.findById(appt.clientId).select('firstName email').exec();
-      if (!client?.email) return whatsapp;
+      const client = await this.clients.findById(appt.clientId).select('firstName email guardianId').exec();
+      // Beneficiario sin correo propio: el aviso va a su responsable.
+      const guardian = client && !client.email && client.guardianId ? await this.clients.findById(client.guardianId).select('email').exec() : null;
+      const email = client?.email ?? guardian?.email;
+      if (!client || !email) return whatsapp;
       const [org, branch, pro] = await Promise.all([
         this.organizations.findById(organizationId).select('name slug').exec(),
         this.branches.findById(appt.branchId).select('name address timezone').exec(),
@@ -69,7 +72,7 @@ export class BookingMailerService {
 
       const ok = await this.mail.send(
         bookingEmail(kind, {
-          to: client.email,
+          to: email,
           firstName: client.firstName,
           organizationName: org.name,
           serviceName: appt.serviceName,
@@ -83,7 +86,7 @@ export class BookingMailerService {
           bookingUrl: this.mail.appUrl(`/reservar/${org.slug}`),
         }),
       );
-      await this.automations.record(flowKey ?? kind, 'email', client.email, ok ? null : 'No se pudo enviar el correo', {
+      await this.automations.record(flowKey ?? kind, 'email', email, ok ? null : 'No se pudo enviar el correo', {
         clientId: client.id as string,
         appointmentId,
       });

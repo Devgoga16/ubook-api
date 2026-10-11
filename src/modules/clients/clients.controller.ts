@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { RequirePermission } from '../../core/auth/decorators.js';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { RequireFeature, RequirePermission } from '../../core/auth/decorators.js';
 import { ParseObjectIdPipe } from '../../core/common/parse-object-id.pipe.js';
 import { ClientsService } from './clients.service.js';
-import { CreateClientDto, ListClientsQuery, UpdateClientDto } from './dto/client.dto.js';
+import { AddDependentDto, CreateClientDto, ListClientsQuery, UpdateClientDto, UpdateGuardianLinkDto } from './dto/client.dto.js';
 
 @Controller('clients')
 export class ClientsController {
@@ -32,6 +32,35 @@ export class ClientsController {
   @Get(':id')
   get(@Param('id', ParseObjectIdPipe) id: string) {
     return this.clients.get(id);
+  }
+
+  /** Responsable y personas a cargo de este cliente. */
+  @RequirePermission('client.read')
+  @Get(':id/family')
+  family(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.clients.family(id);
+  }
+
+  @RequirePermission('client.update')
+  @RequireFeature('guardians')
+  @Post(':id/dependents')
+  addDependent(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: AddDependentDto) {
+    return this.clients.addDependent(id, dto);
+  }
+
+  /** Cambia el parentesco de un beneficiario con su responsable. */
+  @RequirePermission('client.update')
+  @RequireFeature('guardians')
+  @Patch(':id/guardian')
+  updateGuardian(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateGuardianLinkDto) {
+    return this.clients.updateGuardianLink(id, { relationship: dto.relationship });
+  }
+
+  /** Quita el vínculo: la persona deja de estar a cargo de su responsable. */
+  @RequirePermission('client.update')
+  @Delete(':id/guardian')
+  removeGuardian(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.clients.updateGuardianLink(id, { unlink: true });
   }
 
   @RequirePermission('client.create')

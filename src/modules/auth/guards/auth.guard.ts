@@ -53,6 +53,10 @@ export class AuthGuard implements CanActivate {
       const user = await this.users.findById(payload.sub);
       if (!user?.isActive || !user.platformRole) throw Errors.unauthorized();
       platformRole = user.platformRole;
+    } else if (payload.sup) {
+      // Vista de soporte: solo vale mientras el agente siga en el equipo de plataforma.
+      const user = await this.users.findById(payload.sub);
+      if (!user?.isActive || !user.platformRole || payload.ctx !== 'staff' || !payload.org) throw Errors.unauthorized();
     }
 
     const requiredPlatformRoles = this.reflector.getAllAndOverride<PlatformRole[]>(PLATFORM_ROLES, targets);
@@ -67,6 +71,7 @@ export class AuthGuard implements CanActivate {
       organizationId: payload.org,
       membershipId: payload.mid,
       platformRole,
+      ...(payload.sup && { supportView: true }),
     });
     if (payload.ctx === 'staff' && payload.org) TenantContext.setOrganizationId(payload.org);
     return true;

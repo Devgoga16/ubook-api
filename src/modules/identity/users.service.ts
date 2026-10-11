@@ -74,4 +74,54 @@ export class UsersService {
   hasSuperAdmin(): Promise<boolean> {
     return this.users.exists({ platformRole: 'super_admin' }).then(Boolean);
   }
+
+  /* ---------- Equipo de plataforma (Unify Tec) ---------- */
+
+  /** Cuenta de plataforma sin contraseña: la persona la crea con el enlace de invitación. */
+  async createPlatformUser(input: { email: string; firstName: string; lastName: string; platformRole: PlatformRole }): Promise<UserDocument> {
+    if (await this.users.exists({ email: input.email.toLowerCase().trim() })) {
+      throw Errors.conflict('EMAIL_TAKEN', 'Ese correo ya tiene una cuenta en uBook. Usa otro correo para el equipo de soporte.');
+    }
+    return this.users.create(input);
+  }
+
+  /** Equipo de plataforma, con `pending` para quien aún no creó su contraseña. */
+  async listPlatformUsers() {
+    const users = await this.users
+      .find({ platformRole: { $ne: null } })
+      .select('+passwordHash')
+      .sort({ createdAt: 1 })
+      .exec();
+    return users.map((u) => ({
+      id: u.id as string,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      platformRole: u.platformRole as PlatformRole,
+      isActive: u.isActive,
+      pending: !u.passwordHash,
+      lastLoginAt: u.lastLoginAt ?? null,
+      createdAt: (u as unknown as { createdAt: Date }).createdAt,
+    }));
+  }
+
+  findPlatformUser(id: string): Promise<UserDocument | null> {
+    return this.users
+      .findOne({ _id: id, platformRole: { $ne: null } })
+      .select('+passwordHash')
+      .exec();
+  }
+
+  /** Personas de plataforma que pueden entrar hoy (para avisos y asignación de tickets). */
+  activePlatformUsers(): Promise<UserDocument[]> {
+    return this.users.find({ platformRole: { $ne: null }, isActive: true }).sort({ firstName: 1 }).exec();
+  }
+
+  countActiveSuperAdmins(): Promise<number> {
+    return this.users.countDocuments({ platformRole: 'super_admin', isActive: true }).exec();
+  }
+
+  async deleteById(id: string): Promise<void> {
+    await this.users.deleteOne({ _id: id }).exec();
+  }
 }

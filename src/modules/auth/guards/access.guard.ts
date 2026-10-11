@@ -6,6 +6,7 @@ import {
   REQUIRED_FEATURE,
   REQUIRED_PERMISSION,
 } from '../../../core/auth/decorators.js';
+import { supportViewAccess } from '../../../core/authorization/access.types.js';
 import type { PermissionKey } from '../../../core/authorization/permissions.catalog.js';
 import { Errors } from '../../../core/common/errors.js';
 import { TenantContext } from '../../../core/tenancy/tenant-context.js';
@@ -29,6 +30,9 @@ export class AccessGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const actor = TenantContext.getActor();
+    if (actor?.ctx === 'staff' && actor.supportView && actor.organizationId) {
+      return this.supportView(context, actor.userId, actor.organizationId);
+    }
     if (actor?.ctx !== 'staff' || !actor.membershipId || !actor.organizationId) return true;
 
     const targets = [context.getHandler(), context.getClass()];
@@ -53,6 +57,28 @@ export class AccessGuard implements CanActivate {
     const permission = this.reflector.getAllAndOverride<PermissionKey>(REQUIRED_PERMISSION, targets);
     if (permission && !access.permissions[permission]) throw Errors.forbidden();
 
+    return true;
+  }
+
+  /**
+   * Agente de plataforma dentro de un negocio: lee todo (aunque el negocio esté
+   * vencido o suspendido) salvo las fichas clínicas, y no puede modificar nada.
+   */
+  private async supportView(context: ExecutionContext, userId: string, organizationId: string): Promise<boolean> {
+    const method = context.switchToHttp().getRequest<Request>().method;
+    if (!SAFE_METHODS.has(method)) throw Errors.supportViewReadOnly();
+
+    const access = supportViewAccess(userId, organizationId);
+    TenantContext.setAccess(access);
+
+    const targets = [context.getHandler(), context.getClass()];
+    const feature = this.reflector.getAllAndOverride<FeatureKey>(REQUIRED_FEATURE, targets);
+    if (feature) await this.entitlements.assertFeature(organizationId, feature);
+
+    const permission = this.reflector.getAllAndOverride<PermissionKey>(REQUIRED_PERMISSION, targets);
+    if (permission && !access.permissions[permission]) {
+      throw Errors.forbidden('Las fichas clínicas no están disponibles en la vista de soporte');
+    }
     return true;
   }
 }

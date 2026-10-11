@@ -5,6 +5,7 @@ import { Service, ServiceSchema } from '../catalog/schemas/service.schema.js';
 import { ClientsController } from '../clients/clients.controller.js';
 import { ClientsService } from '../clients/clients.service.js';
 import { Client, ClientSchema } from '../clients/schemas/client.schema.js';
+import { Payment, PaymentSchema } from '../payments/schemas/payment.schemas.js';
 import { BranchException, BranchExceptionSchema } from '../organization/schemas/branch-exception.schema.js';
 import { Branch, BranchSchema } from '../organization/schemas/branch.schema.js';
 import { Organization, OrganizationSchema } from '../organization/schemas/organization.schema.js';
@@ -12,6 +13,7 @@ import { Professional, ProfessionalSchema } from '../professionals/schemas/profe
 import { PlatformModule } from '../platform/platform.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PromotionsModule } from '../promotions/promotions.module.js';
+import { SupportModule } from '../support/support.module.js';
 import { Resource, ResourceSchema } from '../resources/resource.schema.js';
 import { TimeOff, TimeOffSchema } from '../professionals/schemas/time-off.schema.js';
 import { AppointmentsService } from './appointments.service.js';
@@ -20,6 +22,9 @@ import { BookingLinksService } from './booking-links.service.js';
 import { BookingMailerService } from './booking-mailer.service.js';
 import { BookingRemindersService } from './booking-reminders.service.js';
 import { BookingsController } from './bookings.controller.js';
+import { ClientPortalController } from './client-portal.controller.js';
+import { ClientPortalService } from './client-portal.service.js';
+import { PortalCode, PortalCodeSchema } from './schemas/portal-code.schema.js';
 import { PublicBookingController } from './public-booking.controller.js';
 import { PublicBookingService } from './public-booking.service.js';
 import { Appointment, AppointmentSchema } from './schemas/appointment.schema.js';
@@ -38,6 +43,8 @@ import { WaitlistService } from './waitlist.service.js';
     MongooseModule.forFeature([
       { name: Appointment.name, schema: AppointmentSchema },
       { name: Counter.name, schema: CounterSchema },
+      { name: Payment.name, schema: PaymentSchema },
+      { name: PortalCode.name, schema: PortalCodeSchema },
       { name: WaitlistEntry.name, schema: WaitlistEntrySchema },
       { name: Resource.name, schema: ResourceSchema },
       { name: AutomationSettings.name, schema: AutomationSettingsSchema },
@@ -55,8 +62,9 @@ import { WaitlistService } from './waitlist.service.js';
     PlatformModule,
     PromotionsModule,
     NotificationsModule,
+    SupportModule,
   ],
-  controllers: [BookingsController, ClientsController, PublicBookingController, WaitlistController, AutomationsController],
+  controllers: [BookingsController, ClientsController, PublicBookingController, ClientPortalController, WaitlistController, AutomationsController],
   providers: [
     AvailabilityService,
     AppointmentsService,
@@ -65,6 +73,7 @@ import { WaitlistService } from './waitlist.service.js';
     BookingMailerService,
     BookingRemindersService,
     PublicBookingService,
+    ClientPortalService,
     WaitlistService,
     AutomationsService,
   ],

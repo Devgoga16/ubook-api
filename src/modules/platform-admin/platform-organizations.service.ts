@@ -70,7 +70,7 @@ export class PlatformOrganizationsService {
     const memberIds: Types.ObjectId[] = await db.collection('memberships').distinct('userId', { organizationId: orgId });
 
     // Archivos privados del negocio.
-    const files = (await Promise.all(['deposits', 'billing', 'logos'].map((p) => this.storage.deletePrefix(`${p}/${id}`)))).reduce((a, b) => a + b, 0);
+    const files = (await Promise.all(['deposits', 'billing', 'logos', 'support'].map((p) => this.storage.deletePrefix(`${p}/${id}`)))).reduce((a, b) => a + b, 0);
 
     // Todas las colecciones con datos del negocio.
     const removed: Record<string, number> = {};

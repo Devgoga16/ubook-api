@@ -25,6 +25,7 @@ import { IdentityModule } from './modules/identity/identity.module.js';
 import { OrganizationModule } from './modules/organization/organization.module.js';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
+import { SupportModule } from './modules/support/support.module.js';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { PlatformModule } from './modules/platform/platform.module.js';
     DashboardModule,
     ReportsModule,
     ResourcesModule,
+    SupportModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -48,6 +48,8 @@ export const Errors = {
       'SUBSCRIPTION_INACTIVE',
       'Tu suscripción no está activa. Puedes consultar tus datos pero no modificarlos.',
     ),
+  supportViewReadOnly: () =>
+    new AppError(HttpStatus.FORBIDDEN, 'SUPPORT_VIEW_READ_ONLY', 'Estás viendo el negocio en modo soporte: solo lectura.'),
   organizationSuspended: () =>
     new AppError(HttpStatus.FORBIDDEN, 'ORGANIZATION_SUSPENDED', 'El negocio está suspendido'),
   notFound: (entity: string) =>
